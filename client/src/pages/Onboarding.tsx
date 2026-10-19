@@ -60,13 +60,16 @@ const Onboarding = () => {
       };
       localStorage.setItem("fittnessUser", JSON.stringify(userData));
 
-      // {
-      //     headers: {
-      //       Authorization: `Bearer ${user?.token}`,
-      //     },
-      //   }
       try {
-        await api.put(`/api/users/${user?.id}`, userData);
+       await api.put(
+  `/api/users/${user?.id}`,
+  userData,
+  {
+    headers: {
+      Authorization: `Bearer ${user?.token}`,
+    },
+  }
+);
         toast.success("Profile updated successfully");
         setOnboardingCompleted(true);
         await fetchUser(user?.token || "");

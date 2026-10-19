@@ -4,47 +4,68 @@
 
 import { factories } from '@strapi/strapi';
 
-export default factories.createCoreController('api::activity-log.activity-log', ({strapi})=>({
+export default factories.createCoreController('api::activity-log.activity-log', ({ strapi }) => ({
 
-    async create(ctx){
-     const user = ctx.state.user 
+    async create(ctx) {
+        const user = ctx.state.user
 
-     if(!user) return ctx.unauthorized('Login required')
-     const body = ctx.request.body.data;
-    body.user_permission_user = user.id;
+        const body = ctx.request.body.data;
+        if (!user) {
+            return ctx.unauthorized('Login required');
+        }
+        body.users_permissions_user = user.id;
 
-    const entry = await strapi.entityService.create(
-        "api::activity-log.activity-log", {
+        const entry = await strapi.entityService.create(
+            "api::activity-log.activity-log", {
             data: body,
             populate: ["users_permissions_user"]
         }
-    )
-    return entry;
+        )
+        return entry;
     },
 
-    async find(ctx){
-     const user = ctx.state.user 
 
-    const result = await strapi.entityService.findMany(
-        "api::activity-log.activity-log", {
-            filters: {users_permissions_user: user.id},
-            populate: ["users_permissions_user"]
+
+    async find(ctx) {
+        const user = ctx.state.user;
+
+        if (!user) {
+            return ctx.unauthorized("Login required");
         }
-    )
-    return result;
+
+
+
+        const result = await strapi.entityService.findMany(
+            "api::activity-log.activity-log",
+            {
+                filters: {
+                    users_permissions_user: {
+                        id: {
+                            $eq: user.id,
+                        },
+                    },
+                },
+                populate: ["users_permissions_user"],
+            }
+        );
+
+
+
+        return result;
     },
 
-     async findOne(ctx){
-     const user = ctx.state.user ;
-     const {id} = ctx.params;
 
-    const result = await strapi.entityService.findMany(
-        "api::activity-log.activity-log", {
-            filters: {id, users_permissions_user: user.id},
+    async findOne(ctx) {
+        const user = ctx.state.user;
+        const { id } = ctx.params;
+
+        const result = await strapi.entityService.findMany(
+            "api::activity-log.activity-log", {
+            filters: { id, users_permissions_user: user.id },
             populate: ["users_permissions_user"]
         }
-    )
-    if(!result.length) return ctx.notFound("Not found or not yours")
-    return result[0];
+        )
+        if (!result.length) return ctx.notFound("Not found or not yours")
+        return result[0];
     }
 }));

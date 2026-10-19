@@ -62,7 +62,7 @@ const Onboarding = () => {
 
       try {
        await api.put(
-  `/api/users/${user?.id}`,
+  "/api/profile",
   userData,
   {
     headers: {

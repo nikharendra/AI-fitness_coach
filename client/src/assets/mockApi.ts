@@ -1,5 +1,5 @@
 import { dummyUser, dummyFoodLogs, dummyActivityLogs } from "../assets/assets";
-import type { UserData, FoodEntry, ActivityEntry, FormData } from "../types";
+import type { UserData, FoodEntry, ActivityEntry, FormData } from "./types";
 
 interface DB {
     user: any;

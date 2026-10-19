@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import type { ProfileFormData, UserData } from "../assets/types";
+import type { ProfileFormData} from "../assets/types";
 import Button from "../assets/ui/Button";
 // import mockApi from "../assets/mockApi";
 import { ageRanges, goalOptions } from "../assets/assets";

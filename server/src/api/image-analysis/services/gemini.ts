@@ -2,114 +2,131 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 
-const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+const apiKey = process.env.GEMINI_API_KEY;
 
-// export const analyzeImage = async (filePath: string)=> {
+if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing from environment variables");
+}
 
-//     try {
-        
-//  const base64ImageFile = fs.readFileSync(filePath, {
-//   encoding: "base64",
-// });
-
-// const contents = [
-//     {
-//         inlineData: {
-//         mimeType: "image/jpeg",
-//         data: base64ImageFile,
-//     },
-// },
-// {text: "Extract the food name and estimated calories from this image in a JSON object."},
-// ];
-
-// const config = {
-//     responseMimeType: "application/json",
-//     responseJsonSchema: {
-//         type: "object",
-//         properties: {
-//             name: {type: "string"},
-//             calories: {type: "number"},
-//         }
-//     }
-// }
-
-// const response = await ai.models.generateContent({model: "gemini-3.8-flash",
-//     contents: contents,
-//     config
-// });
-
-// // response.text should be valied JSON matching the schema  
-
-// return JSON.parse(response.text)
-
-
-// } catch (error) {
-//         console.log(error);
-//         throw error;
-//     }
-// }
-
+const ai = new GoogleGenAI({ apiKey });
 
 export const analyzeImage = async (filePath: string) => {
-    const base64ImageFile = fs.readFileSync(filePath, {
-        encoding: "base64",
-    });
+    const totalStartedAt = Date.now();
 
-    const contents = [
-        {
-            inlineData: {
-                mimeType: "image/jpeg",
-                data: base64ImageFile,
+    try {
+        const readStartedAt = Date.now();
+
+        const base64ImageFile = fs.readFileSync(filePath, {
+            encoding: "base64",
+        });
+
+        console.log(
+            `[ImageAnalysis] Read + Base64: ${Date.now() - readStartedAt} ms`
+        );
+
+        console.log(
+            `[ImageAnalysis] Image size: ${Math.round(
+                (base64ImageFile.length * 3) / 4 / 1024
+            )} KB`
+        );
+
+        const contents = [
+            {
+                inlineData: {
+                    mimeType: "image/jpeg",
+                    data: base64ImageFile,
+                },
             },
-        },
-        {
-            text: "Extract the food name and estimated calories from this image in a JSON object.",
-        },
-    ];
-
-    const config = {
-        responseMimeType: "application/json",
-        responseJsonSchema: {
-            type: "object",
-            properties: {
-                name: { type: "string" },
-                calories: { type: "number" },
+            {
+                text: "Extract the food name and estimated calories from this image in a JSON object.",
             },
-            required: ["name", "calories"],
-        },
-    };
+        ];
 
-    const maxAttempts = 3;
+        const config = {
+            responseMimeType: "application/json",
+            responseJsonSchema: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    calories: { type: "number" },
+                },
+                required: ["name", "calories"],
+            },
+        };
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            const response = await ai.models.generateContent({
-                model: "gemini-3.8-flash",
-                contents,
-                config,
-            });
+        const maxAttempts = 3;
 
-            return JSON.parse(response.text);
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const geminiStartedAt = Date.now();
 
-        } catch (error: any) {
-
-            const status = error?.status;
-
-            if (status === 503 && attempt < maxAttempts) {
-                const delay = attempt * 2000;
-
+            try {
                 console.log(
-                    `Gemini temporarily unavailable. Retrying in ${delay / 1000}s...`
+                    `[ImageAnalysis] Gemini attempt ${attempt}/${maxAttempts} started`
                 );
 
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
+                const response = await ai.models.generateContent({
+                    model: "gemini-3.8-flash",
+                    contents,
+                    config,
+                });
+
+                console.log(
+                    `[ImageAnalysis] Gemini attempt ${attempt} completed: ${
+                        Date.now() - geminiStartedAt
+                    } ms`
+                );
+
+                const parseStartedAt = Date.now();
+                const result = JSON.parse(response.text ?? "");
+
+                console.log(
+                    `[ImageAnalysis] JSON parsing: ${
+                        Date.now() - parseStartedAt
+                    } ms`
+                );
+
+                console.log(
+                    `[ImageAnalysis] Total service time: ${
+                        Date.now() - totalStartedAt
+                    } ms`
+                );
+
+                return result;
+            } catch (error: any) {
+                const status = error?.status ?? error?.response?.status;
+
+                console.error(
+                    `[ImageAnalysis] Attempt ${attempt} failed after ${
+                        Date.now() - geminiStartedAt
+                    } ms. Status: ${status ?? "unknown"}`
+                );
+
+                if (status === 503 && attempt < maxAttempts) {
+                    const delay = attempt * 2000;
+
+                    console.log(
+                        `[ImageAnalysis] Retrying in ${delay / 1000}s`
+                    );
+
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, delay)
+                    );
+
+                    continue;
+                }
+
+                throw error;
             }
-
-            console.error("Gemini analysis failed:", error);
-            throw error;
         }
-    }
 
-    throw new Error("Gemini analysis failed after multiple attempts");
+        throw new Error("Gemini analysis failed after multiple attempts");
+    } catch (error) {
+        console.error(
+            `[ImageAnalysis] Request failed after ${
+                Date.now() - totalStartedAt
+            } ms`
+        );
+
+        throw error;
+    }
 };
